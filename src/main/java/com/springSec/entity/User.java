@@ -23,6 +23,9 @@ public class User {
 
     private String role;
 
+    private String mobile;
+
+
     @Column(name = "password", nullable = false, length = 1000)
     private String password;
 

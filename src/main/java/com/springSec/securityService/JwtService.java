@@ -42,4 +42,19 @@ public class JwtService {
                 .verify(jwtToken)
                 .getSubject();
     }
+
+    /**
+     * Returns the token expiration time in milliseconds
+     */
+    public int getExpiryInMillis() {
+        return expiry;
+    }
+
+    /**
+     * Returns the token expiration time in seconds
+     * (More commonly used in API responses)
+     */
+    public int getExpiryInSeconds() {
+        return expiry / 1000;
+    }
 }

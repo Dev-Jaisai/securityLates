@@ -4,6 +4,8 @@ import com.springSec.entity.User;
 import com.springSec.payload.LoginDto;
 import com.springSec.payload.TokenDto;
 import com.springSec.repo.UserRepository;
+import com.springSec.securityService.JwtService;
+import com.springSec.securityService.OtpService;
 import com.springSec.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +26,16 @@ public class AuthController {
 
     private final UserService userService;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, UserService userService) {
+    private final OtpService otpService;
+
+    private final JwtService jwtService;
+
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, UserService userService, OtpService otpService, JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.userService = userService;
+        this.otpService = otpService;
+        this.jwtService = jwtService;
     }
 /*these method is for all user which is open for all*/
     @PostMapping("/register")
@@ -87,5 +95,55 @@ public class AuthController {
     @GetMapping("/hi")
     public String getmessage(){
         return "hi hello";
+    }
+
+    @PostMapping("/generate")
+    public ResponseEntity<?> generate(@RequestParam String phone) {
+
+        Optional<User> userFindByMobile = userRepository.findByMobile(phone);
+
+        if (userFindByMobile.isPresent()){
+            String otp = otpService.generateOtp(phone);
+            return ResponseEntity.ok("OTP generated: " + otp + " Mobile Number: " + phone); // for demo only
+        }
+        return new ResponseEntity<>("User Not found",HttpStatus.BAD_REQUEST);
+
+    }
+    @PostMapping("/validate")
+    public ResponseEntity<?> validateOtp(@RequestParam String mobile, @RequestParam String otp) {
+        try {
+            // 1. Validate OTP
+            if (!otpService.validateOtp(mobile, otp)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("Invalid OTP or OTP expired");
+            }
+
+            // 2. Find user by mobile number
+            Optional<User> userOptional = userRepository.findByMobile(mobile);
+            if (userOptional.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("User not found with this mobile number");
+            }
+
+            // 3. Generate JWT token directly using JwtService
+            User user = userOptional.get();
+            String jwtToken = jwtService.generateToken(user.getUsername(), user.getRole());
+
+            // 4. Create response
+            TokenDto tokenResponse = new TokenDto();
+            tokenResponse.setTokenType("Bearer");
+            tokenResponse.setToken(jwtToken);
+            // If you want to include expiration time, you can get it from JwtService's expiry field
+            tokenResponse.setExpiresIn(jwtService.getExpiryInSeconds()); // Using the new method
+
+            return ResponseEntity.ok(tokenResponse);
+
+        } catch (UnsupportedEncodingException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Token generation error");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An error occurred during OTP validation");
+        }
     }
 }
