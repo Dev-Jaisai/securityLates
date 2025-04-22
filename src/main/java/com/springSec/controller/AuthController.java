@@ -189,5 +189,33 @@ public class AuthController {
                 })
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("Refresh token not found"));
     }
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @RequestBody RefreshTokenDto refreshTokenDto
+/*
+            @RequestHeader("Authorization") String authHeader
+*/
+    ) {
+        try {
+            // 1. Extract and validate the refresh token
+            String refreshToken = refreshTokenDto.getRefreshToken();
+            if (refreshToken == null || refreshToken.isBlank()) {
+                return ResponseEntity.badRequest().body("Refresh token is required");
+            }
 
+            // 2. Delete the refresh token from database
+            generateRefreshToken.deleteByToken(refreshToken);
+/*
+
+            // 3. (Optional) Add access token to blacklist
+            String accessToken = authHeader.substring(7); // Remove "Bearer " prefix
+            generateRefreshToken.blacklistToken(accessToken);
+*/
+
+            return ResponseEntity.ok("Logged out successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Logout failed: " + e.getMessage());
+        }
+    }
 }

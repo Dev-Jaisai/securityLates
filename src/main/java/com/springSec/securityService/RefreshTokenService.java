@@ -3,9 +3,11 @@ package com.springSec.securityService;
 import com.springSec.entity.RefreshToken;
 import com.springSec.entity.User;
 import com.springSec.repo.RefreshTokenRepository;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,5 +68,26 @@ public class RefreshTokenService {
      */
     public void deleteByUser(User user) {
         refreshTokenRepository.deleteByUser(user);
+    }
+
+
+    // Delete a specific refresh token
+    public void deleteByToken(String token) {
+        refreshTokenRepository.findByToken(token).ifPresent(refreshTokenRepository::delete);
+        System.out.println("Refresh token deleted from database");
+    }
+
+    // Delete all refresh tokens for a user (useful for password changes)
+    public void deleteAllForUser(User user) {
+        refreshTokenRepository.deleteAllByUser(user);
+        System.out.println("All refresh tokens deleted for user: " + user.getUsername());
+    }
+
+    // Clean up expired tokens periodically
+    @Scheduled(fixedRate = 24 * 60 * 60 * 1000) // Runs daily
+    public void cleanupExpiredTokens() {
+        Instant now = Instant.now();
+        refreshTokenRepository.deleteAllByExpiryDateBefore(now);
+        System.out.println("Cleaned up expired refresh tokens");
     }
 }

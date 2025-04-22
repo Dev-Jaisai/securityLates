@@ -20,7 +20,7 @@ public class SpringConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf().disable().cors().disable();
-        http.authorizeHttpRequests().requestMatchers("/api/v1/auth/register", "/api/v1/auth/verify","/api/v1/auth/registerContentManager","/api/v1/auth/generate","/api/v1/auth/validate","/api/v1/auth/refresh").permitAll()
+        http.authorizeHttpRequests().requestMatchers("/api/v1/auth/register", "/api/v1/auth/verify","/api/v1/auth/registerContentManager","/api/v1/auth/generate","/api/v1/auth/validate","/api/v1/auth/refresh","/api/v1/auth/logout").permitAll()
                 .requestMatchers("/api/v1/auth/hi").hasRole("CONTENT_MANAGER")
                 .requestMatchers("/api/v1/auth/hiUser").hasRole("USER")
                 .anyRequest().authenticated()
