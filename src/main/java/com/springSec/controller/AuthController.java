@@ -88,39 +88,23 @@ public class AuthController {
         userRepository.save(user);
         return ResponseEntity.status(HttpStatus.CREATED).body("User Created");
     }
-
     @PostMapping("/verify")
-    public ResponseEntity<?> userSignIn(@RequestBody LoginDto loginDto) throws UnsupportedEncodingException {
+    public ResponseEntity<?> userSignIn(@RequestBody LoginDto loginDto) {
         Optional<User> userOpt = userRepository.findByUsername(loginDto.getUsername());
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-
-            // ✅ Verify password
-            boolean match = BCrypt.checkpw(loginDto.getPassword(), user.getPassword());
-            if (match) {
-                // ✅ Automatically generate OTP instead of returning token immediately
-                String otp = otpService.generateOtp(user.getMobile());
-
-                // ✅ For demo: return OTP in response (in production, send via SMS/email)
-                return ResponseEntity.ok("OTP sent to registered mobile: " + user.getMobile() + " (Demo OTP: " + otp + ")");
-            }
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
         }
 
-        return new ResponseEntity<>("Invalid credentials", HttpStatus.UNAUTHORIZED);
+        User user = userOpt.get();
+        if (!BCrypt.checkpw(loginDto.getPassword(), user.getPassword())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+        }
 
-    /*
-    // 🔴 Old code - directly returning token on password verification
-    String token = userService.verifyLogin(loginDto);
-    if (token != null) {
-        TokenDto dto = new TokenDto();
-        dto.setToken(token);
-        dto.setTokenType("JWT");
-        return new ResponseEntity<>(dto, HttpStatus.CREATED);
+        // Generate and return OTP
+        String otp = otpService.generateOtp(user.getUsername());
+        return ResponseEntity.ok("OTP sent to registered mobile: " + user.getMobile() +
+                " (Demo OTP: " + otp + ")");
     }
-    return new ResponseEntity<>("Invalid Password ", HttpStatus.BAD_GATEWAY);
-    */
-    }
-
     @GetMapping("/hi")
     public String getmessage() {
         return "hi hello";
@@ -145,45 +129,37 @@ public class AuthController {
     }
 
     @PostMapping("/validate")
-    public ResponseEntity<?> validateOtp(@RequestParam String mobile, @RequestParam String otp) {
+    public ResponseEntity<?> validateOtp(@RequestParam String username,
+                                         @RequestParam String otp) {
         try {
             // 1. Validate OTP
-            if (!otpService.validateOtp(mobile, otp)) {
+            if (!otpService.validateOtp(username, otp)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("Invalid OTP or OTP expired");
             }
 
-            // 2. Find user by mobile number
-            Optional<User> userOptional = userRepository.findByMobile(mobile);
-            if (userOptional.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("User not found with this mobile number");
-            }
+            // 2. Get user details
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // 3. Generate JWT token directly using JwtService
-            User user = userOptional.get();
+            // 3. Generate tokens
             String jwtToken = jwtService.generateToken(user.getUsername(), user.getRole());
             String refreshToken = generateRefreshToken.createRefreshToken(user);
 
-            // 4. Create response
+            // 4. Return response
             TokenDto tokenResponse = new TokenDto();
             tokenResponse.setTokenType("Bearer");
             tokenResponse.setToken(jwtToken);
             tokenResponse.setRefreshToken(refreshToken);
-            // If you want to include expiration time, you can get it from JwtService's expiry field
-            tokenResponse.setExpiresIn(jwtService.getExpiryInSeconds()); // Using the new method
+            tokenResponse.setExpiresIn(jwtService.getExpiryInSeconds());
 
             return ResponseEntity.ok(tokenResponse);
 
-        } catch (UnsupportedEncodingException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Token generation error");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("An error occurred during OTP validation");
+                    .body("Error during OTP validation: " + e.getMessage());
         }
     }
-
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshAccessToken(@RequestBody RefreshTokenDto request) {
         String requestToken = request.getRefreshToken();

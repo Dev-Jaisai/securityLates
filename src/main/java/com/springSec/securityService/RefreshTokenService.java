@@ -4,6 +4,7 @@ import com.springSec.entity.RefreshToken;
 import com.springSec.entity.User;
 import com.springSec.repo.RefreshTokenRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.Optional;
@@ -20,6 +21,8 @@ public class RefreshTokenService {
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository) {
         this.refreshTokenRepository = refreshTokenRepository;
     }
+
+    @Transactional
     public String createRefreshToken(User user) {
         // Optional: remove old refresh token (if only one active per user)
         refreshTokenRepository.deleteByUser(user);

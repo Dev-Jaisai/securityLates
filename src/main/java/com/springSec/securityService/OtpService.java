@@ -9,65 +9,48 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class OtpService {
-
-    // Store OTPs with their expiration time (key: username/email, value: OTP and expiration time)
     private final Map<String, OtpData> otpStorage = new ConcurrentHashMap<>();
-
-    // OTP validity duration in milliseconds (5 minutes)
-    private static final long OTP_VALID_DURATION = 5 * 60 * 1000;
-
-    // OTP length
+    private static final long OTP_VALID_DURATION = 5 * 60 * 1000; // 5 minutes
     private static final int OTP_LENGTH = 6;
 
-    /**
-     * Generates and stores a new OTP for the given key (username/email)
-     * @param key The mobileNumber to associate with the OTP
-     * @return The generated OTP (for demo purposes - in production, this should be sent directly to user)
-     */
-    public String generateOtp(String mobileNumber) {
-        // Clean up any existing OTP for this key
-        otpStorage.remove(mobileNumber);
+    public String generateOtp(String username) {
+        // Clean up expired OTPs first
+        cleanupExpiredOtps();
 
-        // Generate random OTP
+        // Generate and store new OTP
         String otp = generateRandomOtp();
-
-        // Calculate expiration time
         long expirationTime = System.currentTimeMillis() + OTP_VALID_DURATION;
+        otpStorage.put(username, new OtpData(otp, expirationTime));
 
-        // Store the OTP with its expiration time
-        otpStorage.put(mobileNumber, new OtpData(otp, expirationTime));
-
+        System.out.println("Generated OTP for " + username + ": " + otp);
+        System.out.println("Current OTP Storage: " + otpStorage);
         return otp;
     }
 
-    /**
-     * Validates the provided OTP for the given key
-     * @param key The username or email
-     * @param otp The OTP to validate
-     * @return true if valid, false otherwise
-     */
-    public boolean validateOtp(String key, String otp) {
-        OtpData otpData = otpStorage.get(key);
+    public boolean validateOtp(String username, String otp) {
+        System.out.println("Validating OTP for " + username + ", input: " + otp);
+        System.out.println("Current OTP Storage: " + otpStorage);
 
-        // No OTP found for this key
+        OtpData otpData = otpStorage.get(username);
         if (otpData == null) {
+            System.out.println("No OTP found for user: " + username);
             return false;
         }
 
-        // Check if OTP matches and is not expired
-        if (otpData.getOtp().equals(otp) && System.currentTimeMillis() <= otpData.getExpirationTime()) {
-            // Remove the OTP after successful validation
-            otpStorage.remove(key);
-            return true;
+        boolean isValid = otpData.getOtp().equals(otp) &&
+                System.currentTimeMillis() <= otpData.getExpirationTime();
+
+        if (isValid) {
+            otpStorage.remove(username); // Only remove if valid
+            System.out.println("OTP validation successful for " + username);
+        } else {
+            System.out.println("OTP validation failed for " + username);
         }
 
-        return false;
+        return isValid;
     }
 
-    /**
-     * Cleans up expired OTPs periodically
-     */
-    @Scheduled(fixedRate = 60 * 1000) // Run every minute
+    @Scheduled(fixedRate = 60 * 1000)
     public void cleanupExpiredOtps() {
         long currentTime = System.currentTimeMillis();
         otpStorage.entrySet().removeIf(entry ->
@@ -75,24 +58,15 @@ public class OtpService {
         );
     }
 
-    /**
-     * Generates a random numeric OTP
-     * @return The generated OTP string
-     */
     private String generateRandomOtp() {
         Random random = new Random();
         StringBuilder otp = new StringBuilder(OTP_LENGTH);
-
         for (int i = 0; i < OTP_LENGTH; i++) {
-            otp.append(random.nextInt(10)); // 0-9
+            otp.append(random.nextInt(10));
         }
-
         return otp.toString();
     }
 
-    /**
-     * Inner class to hold OTP data and expiration time
-     */
     private static class OtpData {
         private final String otp;
         private final long expirationTime;
@@ -102,12 +76,7 @@ public class OtpService {
             this.expirationTime = expirationTime;
         }
 
-        public String getOtp() {
-            return otp;
-        }
-
-        public long getExpirationTime() {
-            return expirationTime;
-        }
+        public String getOtp() { return otp; }
+        public long getExpirationTime() { return expirationTime; }
     }
 }
