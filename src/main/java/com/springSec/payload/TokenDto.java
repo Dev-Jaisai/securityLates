@@ -7,6 +7,8 @@ public class TokenDto {
     private String token;
     private String tokenType;
     private long expiresIn;        // Token expiration time in seconds
+    private String refreshToken; // Refresh Token
+
 
 }
 

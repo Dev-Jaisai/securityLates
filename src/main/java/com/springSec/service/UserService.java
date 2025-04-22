@@ -23,20 +23,22 @@ public class UserService {
         this.jwtService = jwtService;
     }
 
-    public String verifyLogin(LoginDto loginDto) throws UnsupportedEncodingException {
+    public boolean verifyLogin(LoginDto loginDto) throws UnsupportedEncodingException {
         Optional<User> byUsername = userRepository.findByUsername(loginDto.getUsername());
         if (byUsername.isPresent()) {
             User user = byUsername.get();
 
             boolean checkpw = BCrypt.checkpw(loginDto.getPassword(), user.getPassword());
 
-            if (checkpw) {
+          /*  if (checkpw) {
                 String tokenFromTheJwtService = jwtService.generateToken(user.getUsername(),user.getRole());
                 return tokenFromTheJwtService;
 
-            }
+            }*/
+
+            return checkpw;
         }
-        return null;
+        return false;
 
     }
 
